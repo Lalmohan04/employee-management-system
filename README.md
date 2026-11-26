@@ -11,6 +11,7 @@ It covers employee records, departments, attendance, leave lifecycle, task assig
 ## Contents
 
 - [What it does](#what-it-does)
+- [Demo](#demo)
 - [Technology stack](#technology-stack)
 - [Quick start — Windows / VS Code](#quick-start--windows--vs-code)
 - [Manual development setup](#manual-development-setup)
@@ -55,6 +56,28 @@ It covers employee records, departments, attendance, leave lifecycle, task assig
 | `EMPLOYEE` | Self-service attendance, leave, tasks, profile, notifications |
 
 Role checks are enforced server-side with Spring method security (`@PreAuthorize`). `hasRole('X')` is exact: an `ADMIN` cannot call an `EMPLOYEE`-only endpoint.
+
+---
+
+## Demo
+
+A real browser recording of the running application: admin sign-in, dashboard metrics, department and employee creation, search/edit, employee self-registration, attendance, leave, tasks, notifications, and safe deactivation.
+
+![Employee Management System demo](docs/demo.gif)
+
+[Watch the higher-quality WebM version](docs/demo.webm)
+
+The recording is produced by Playwright against the real API and MySQL database. It does not reset or delete existing data; generated records use a `DEMO-` prefix.
+
+To regenerate it after starting the app with `run.ps1`:
+
+```powershell
+cd employee-management-ui
+npx playwright install chromium ffmpeg
+npm run demo:record
+```
+
+> Uses Playwright Chromium by default; set `EMS_DEMO_BROWSER=msedge` to use Microsoft Edge instead. Credentials and URLs can be overridden with `EMS_ADMIN_EMAIL`, `EMS_ADMIN_PASSWORD`, `EMS_DEMO_PASSWORD`, `EMS_UI_URL`, and `EMS_API_URL`.
 
 ---
 
