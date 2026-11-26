@@ -36,24 +36,28 @@ A PowerShell launcher (`run.ps1`) orchestrates all three processes on the local 
 ## 2. System context (C4 level 1)
 
 ```mermaid
-flowchart TB
-    EMP["Employee"] -->|Browser| SPA
-    ADM["Admin / HR / Manager"] -->|Browser| SPA
-
-    subgraph LocalMachine["Local machine / development environment"]
-        SPA["EMS Web App<br/>React SPA"]
-        API["EMS API<br/>Spring Boot"]
-        DB[("employee_management_db<br/>MySQL")]
-        RUN["run.ps1 / run.cmd<br/>process orchestrator"]
-
-        SPA -->|JSON + Bearer JWT| API
-        API -->|JDBC / Hibernate| DB
-        RUN -.->|starts / stops| SPA
-        RUN -.->|starts / stops| API
-        RUN -.->|starts if missing| DB
+graph TB
+    subgraph Actors
+        EMP[Employee]
+        ADM[Admin HR Manager]
+        DEV[Developer VS Code]
     end
 
-    DEV["Developer / VS Code"] -->|runs| RUN
+    subgraph LocalMachine[Local machine]
+        SPA[EMS Web App React SPA]
+        API[EMS API Spring Boot]
+        DB[(employee_management_db MySQL)]
+        RUN[run.ps1 and run.cmd launcher]
+    end
+
+    EMP --> SPA
+    ADM --> SPA
+    DEV --> RUN
+    SPA --> API
+    API --> DB
+    RUN -.-> SPA
+    RUN -.-> API
+    RUN -.-> DB
 ```
 
 ### External interactions
@@ -72,38 +76,40 @@ There are no third-party integrations, message brokers, caches, email providers,
 ## 3. Container view (C4 level 2)
 
 ```mermaid
-flowchart LR
-    subgraph Browser["Browser"]
-        UI["React SPA<br/>src/pages/*"]
-        ROUTER["React Router + guards<br/>App.jsx"]
-        CTX["AuthContext<br/>token + user in localStorage"]
-        AX["Axios instance<br/>services/api.js"]
-        UI --> ROUTER --> CTX
-        UI --> AX
+graph LR
+    subgraph Browser
+        UI[React SPA pages]
+        ROUTER[React Router guards]
+        CTX[AuthContext]
+        AX[Axios instance]
     end
 
-    subgraph Backend["Spring Boot process :8080"]
-        FILTER["JwtAuthenticationFilter"]
-        SEC["SecurityConfig / @PreAuthorize"]
-        CTRL["Controllers<br/>9 REST controllers"]
-        DTO["DTOs + Bean Validation"]
-        SVC["Services<br/>9 interfaces + impls"]
-        REPO["Repositories<br/>Spring Data JPA"]
-        MAP["EmployeeMapper / EmployeeSpecification"]
-        EX["GlobalExceptionHandler"]
-
-        FILTER --> SEC --> CTRL
-        CTRL --> DTO --> SVC
-        SVC --> REPO
-        SVC --> MAP
-        CTRL -.-> EX
-        SVC -.-> EX
+    subgraph Backend
+        FILTER[JwtAuthenticationFilter]
+        SEC[SecurityConfig PreAuthorize]
+        CTRL[REST controllers]
+        DTO[DTO validation]
+        SVC[Services]
+        REPO[Repositories]
+        MAP[Mapper and Specification]
+        EX[GlobalExceptionHandler]
     end
 
-    DB[("MySQL :3306")]
+    DB[(MySQL)]
 
-    AX -->|HTTP JSON| FILTER
-    REPO -->|JDBC| DB
+    UI --> ROUTER
+    ROUTER --> CTX
+    UI --> AX
+    AX --> FILTER
+    FILTER --> SEC
+    SEC --> CTRL
+    CTRL --> DTO
+    DTO --> SVC
+    SVC --> REPO
+    SVC --> MAP
+    CTRL -.-> EX
+    SVC -.-> EX
+    REPO --> DB
 ```
 
 ### Container responsibilities
@@ -120,18 +126,18 @@ flowchart LR
 ## 4. Backend layered architecture
 
 ```mermaid
-flowchart TD
-    C["Controller layer<br/>HTTP mapping, @PreAuthorize"] --> V["DTO + validation<br/>Request contracts"]
-    V --> S["Service layer<br/>business rules, transactions"]
-    S --> R["Repository layer<br/>Spring Data JPA queries"]
-    R --> J["JPA / Hibernate<br/>entity mapping, lazy associations"]
-    J --> D[("MySQL")]
+graph TD
+    C[Controller layer HTTP and authorization] --> V[DTO and validation]
+    V --> S[Service layer business rules]
+    S --> R[Repository layer JPA queries]
+    R --> J[JPA Hibernate entity mapping]
+    J --> D[(MySQL)]
 
-    SEC["Security cross-cutting<br/>JWT filter, BCrypt, role authorities"] -.-> C
-    EX["GlobalExceptionHandler<br/>domain + validation errors"] -.-> C
-    MAP["EmployeeMapper<br/>DTO ↔ entity"] -.-> S
-    SPEC["EmployeeSpecification<br/>dynamic search criteria"] -.-> R
-    NOTE["NotificationService<br/>cross-domain side effects"] -.-> S
+    SEC[Security cross cutting JWT BCrypt roles] -.-> C
+    EX[Global exception handler] -.-> C
+    MAP[Employee mapper] -.-> S
+    SPEC[Employee search specification] -.-> R
+    NOTE[Notification service] -.-> S
 ```
 
 ### Layer rules
@@ -162,22 +168,22 @@ flowchart TD
 ## 5. Frontend architecture
 
 ```mermaid
-flowchart TD
-    MAIN["main.jsx"] --> BROWSER["BrowserRouter"]
-    BROWSER --> AUTH["AuthProvider<br/>AuthContext"]
-    AUTH --> APP["App.jsx routes"]
+graph TD
+    MAIN[main.jsx] --> BROWSER[BrowserRouter]
+    BROWSER --> AUTH[AuthProvider]
+    AUTH --> APP[App routes]
 
-    APP --> PUB["Public routes<br/>Login, Register"]
-    APP --> PROT["ProtectedRoute<br/>any authenticated user"]
-    APP --> ROLE["RoleProtectedRoute<br/>role allowlist"]
+    APP --> PUB[Public routes]
+    APP --> PROT[ProtectedRoute]
+    APP --> ROLE[RoleProtectedRoute]
 
-    PROT --> SHELL["Navbar layout<br/>role-aware navigation"]
+    PROT --> SHELL[Navbar layout]
     ROLE --> SHELL
 
-    SHELL --> PAGES["Pages<br/>dashboard, employees, leave,<br/>attendance, tasks, notifications, profile"]
-    PAGES --> SERVICES["Service wrappers<br/>src/services/*"]
-    SERVICES --> APIJS["Axios instance<br/>baseURL /api + Bearer interceptor"]
-    APIJS --> BACKEND["Spring Boot API"]
+    SHELL --> PAGES[Pages]
+    PAGES --> SERVICES[Service wrappers]
+    SERVICES --> APIJS[Axios API client]
+    APIJS --> BACKEND[Spring Boot API]
 ```
 
 ### Frontend design decisions
@@ -285,97 +291,13 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    USERS ||--o| EMPLOYEES : "linked profile"
-    USERS ||--o{ NOTIFICATIONS : "owns"
-    DEPARTMENTS ||--o{ EMPLOYEES : "contains"
-    EMPLOYEES ||--o{ ATTENDANCE : "records"
-    EMPLOYEES ||--o{ LEAVE_REQUESTS : "submits"
-    EMPLOYEES ||--o{ TASKS : "assigned"
-    EMPLOYEES ||--o{ PERFORMANCE_REVIEWS : "reviewed"
-
-    USERS {
-        bigint id PK
-        string email UK
-        string password
-        string role
-        boolean enabled
-        datetime created_at
-    }
-
-    DEPARTMENTS {
-        bigint id PK
-        string name UK
-        string description
-        datetime created_at
-    }
-
-    EMPLOYEES {
-        bigint id PK
-        string employee_code UK
-        string first_name
-        string last_name
-        string email UK
-        bigint department_id FK
-        bigint user_id FK
-        string status
-        date joining_date
-        decimal salary
-        datetime created_at
-        datetime updated_at
-    }
-
-    ATTENDANCE {
-        bigint id PK
-        bigint employee_id FK
-        date date
-        time check_in_time
-        time check_out_time
-        string status
-        double working_hours
-    }
-
-    LEAVE_REQUESTS {
-        bigint id PK
-        bigint employee_id FK
-        string leave_type
-        date start_date
-        date end_date
-        string reason
-        string status
-        datetime applied_at
-        string actioned_by
-        datetime actioned_at
-    }
-
-    TASKS {
-        bigint id PK
-        string title
-        bigint assigned_to FK
-        string assigned_by
-        string priority
-        string status
-        date due_date
-        datetime created_at
-        datetime updated_at
-    }
-
-    NOTIFICATIONS {
-        bigint id PK
-        bigint user_id FK
-        string message
-        string type
-        boolean is_read
-        datetime created_at
-    }
-
-    PERFORMANCE_REVIEWS {
-        bigint id PK
-        bigint employee_id FK
-        string reviewed_by
-        string review_period
-        int rating
-        datetime created_at
-    }
+    USERS ||--o| EMPLOYEES : linked_profile
+    USERS ||--o{ NOTIFICATIONS : owns
+    DEPARTMENTS ||--o{ EMPLOYEES : contains
+    EMPLOYEES ||--o{ ATTENDANCE : records
+    EMPLOYEES ||--o{ LEAVE_REQUESTS : submits
+    EMPLOYEES ||--o{ TASKS : assigned
+    EMPLOYEES ||--o{ PERFORMANCE_REVIEWS : reviewed
 ```
 
 ### 7.2 Table summary
@@ -422,31 +344,31 @@ erDiagram
 ```mermaid
 sequenceDiagram
     participant UI as React page
-    participant AX as services/api.js
-    participant F as JwtAuthenticationFilter
+    participant AX as Axios client
+    participant F as JWT filter
     participant C as Controller
     participant S as Service
     participant R as Repository
     participant DB as MySQL
-    participant E as GlobalExceptionHandler
+    participant E as Exception handler
 
     UI->>AX: service call
-    AX->>AX: attach Bearer token from localStorage
+    AX->>AX: attach bearer token
     AX->>F: HTTP request
-    F->>F: validate JWT, set ROLE_* authority
+    F->>F: validate token and roles
     F->>C: authenticated request
-    C->>C: @PreAuthorize + @Valid
-    C->>S: method call with DTO / path id
-    S->>R: query / save
+    C->>C: check role and validation
+    C->>S: call with DTO and id
+    S->>R: query or save
     R->>DB: SQL
     DB-->>R: rows
     R-->>S: entities
     S-->>C: response DTO
     C-->>UI: 2xx JSON
 
-    Note over S,E: On domain or validation failure
+    Note over S,E: domain or validation failure
     S-->>E: exception
-    E-->>UI: 4xx / 5xx ErrorResponseDto
+    E-->>UI: 4xx or 5xx JSON
 ```
 
 ### 8.2 Leave application and approval
@@ -454,31 +376,31 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor E as Employee
-    actor A as Admin / HR
+    actor A as Admin HR
     participant UI as React SPA
     participant API as Spring API
     participant LS as LeaveService
     participant DB as MySQL
     participant NS as NotificationService
 
-    E->>UI: Apply (type, dates, reason)
+    E->>UI: apply for leave
     UI->>API: POST /api/leaves
-    API->>LS: applyLeave(email, dto)
-    LS->>DB: check overlapping PENDING/APPROVED leaves
-    LS->>DB: check annual quota (CASUAL 12, SICK 10, EARNED 15)
-    LS->>DB: save Leave(status=PENDING)
-    LS-->>UI: 201 LeaveResponseDto
+    API->>LS: applyLeave
+    LS->>DB: check overlapping leaves
+    LS->>DB: check annual quota
+    LS->>DB: save leave as pending
+    LS-->>UI: 201 response
 
-    Note over UI,API: Current UI has no approval button; admin uses the API directly.
+    Note over UI,API: approval UI is not implemented yet
     A->>API: GET /api/leaves
     API-->>A: all leave requests
-    A->>API: PATCH /api/leaves/{id}/approve
-    API->>LS: approveLeave(id, adminEmail)
-    LS->>DB: load leave, require status=PENDING
-    LS->>DB: status=APPROVED, actionedBy, actionedAt
+    A->>API: PATCH /api/leaves/id/approve
+    API->>LS: approveLeave
+    LS->>DB: load leave and require pending
+    LS->>DB: set approved audit fields
     LS->>NS: notify employee
-    NS->>DB: save Notification(LEAVE_APPROVED)
-    LS-->>A: 200 LeaveResponseDto
+    NS->>DB: save notification
+    LS-->>A: 200 response
 ```
 
 **Rules enforced by `LeaveServiceImpl`:**
@@ -496,19 +418,19 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor A as Admin / HR
-    participant UI as EmployeeListPage
-    participant API as EmployeeController
-    participant S as EmployeeService
+    actor A as Admin HR
+    participant UI as Employee list page
+    participant API as Employee controller
+    participant S as Employee service
     participant DB as MySQL
 
-    A->>UI: Confirm deactivate
-    UI->>API: PATCH /api/employees/{id}/deactivate
-    API->>S: deactivateEmployee(id)
-    S->>DB: employee.status = INACTIVE
-    S->>DB: if linked user exists, user.enabled = false
-    S-->>UI: 204 No Content
-    UI->>UI: refresh list / disable button
+    A->>UI: confirm deactivate
+    UI->>API: PATCH /api/employees/id/deactivate
+    API->>S: deactivateEmployee
+    S->>DB: set employee inactive
+    S->>DB: disable linked user
+    S-->>UI: 204 response
+    UI->>UI: refresh list
 ```
 
 Historical attendance, leave, task, and review rows remain intact. There is no reactivation endpoint.
@@ -687,25 +609,25 @@ It sets `JAVA_HOME`, loads `DB_PASSWORD` and `JWT_SECRET` from the gitignored `.
 ## 11. Local runtime topology
 
 ```mermaid
-flowchart TD
-    RC["run.cmd<br/>double-click wrapper"] --> PS["run.ps1<br/>idempotent orchestrator"]
+graph TD
+    RC[run.cmd] --> PS[run.ps1 orchestrator]
 
-    PS --> CHK{"Already listening?"}
+    PS --> CHK{Already listening}
 
-    CHK -->|3306 down| MY["Start mysqld<br/>--datadir preserved"]
-    CHK -->|3306 up| MYOK["Reuse existing MySQL"]
+    CHK -->|3306 down| MY[Start mysqld]
+    CHK -->|3306 up| MYOK[Reuse existing MySQL]
 
-    CHK -->|8080 down| BE["Start java -jar<br/>management-0.0.1-SNAPSHOT.jar"]
-    CHK -->|8080 up| BEOK["Reuse existing backend"]
+    CHK -->|8080 down| BE[Start backend jar]
+    CHK -->|8080 up| BEOK[Reuse existing backend]
 
-    CHK -->|5173 down| FE["Start node vite.js<br/>--host 127.0.0.1"]
-    CHK -->|5173 up| FEAOK["Reuse existing UI"]
+    CHK -->|5173 down| FE[Start Vite]
+    CHK -->|5173 up| FEAOK[Reuse existing UI]
 
-    MY --> WAIT1["Wait for port/HTTP readiness"]
-    BE --> WAIT2["Wait for HTTP readiness"]
-    FE --> WAIT3["Wait for HTTP readiness"]
+    MY --> WAIT1[Wait for MySQL]
+    BE --> WAIT2[Wait for backend]
+    FE --> WAIT3[Wait for UI]
 
-    WAIT1 --> READY["App ready<br/>http://localhost:5173"]
+    WAIT1 --> READY[App ready at localhost 5173]
     WAIT2 --> READY
     WAIT3 --> READY
     MYOK --> READY
