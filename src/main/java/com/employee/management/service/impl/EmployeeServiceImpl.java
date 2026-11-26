@@ -106,6 +106,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         employee.setStatus(EmployeeStatus.INACTIVE);
         employeeRepository.save(employee);
+
+        // A deactivated employee must not be able to keep logging in.
+        userRepository.findByEmail(employee.getEmail()).ifPresent(user -> {
+            user.setEnabled(false);
+            userRepository.save(user);
+        });
     }
 
     @Override
