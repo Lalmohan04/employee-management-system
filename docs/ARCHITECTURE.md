@@ -37,27 +37,22 @@ A PowerShell launcher (`run.ps1`) orchestrates all three processes on the local 
 
 ```mermaid
 graph TB
-    subgraph Actors
-        EMP[Employee]
-        ADM[Admin HR Manager]
-        DEV[Developer VS Code]
-    end
-
-    subgraph LocalMachine[Local machine]
-        SPA[EMS Web App React SPA]
-        API[EMS API Spring Boot]
-        DB[(employee_management_db MySQL)]
-        RUN[run.ps1 and run.cmd launcher]
-    end
+    EMP[Employee]
+    ADM[Admin HR Manager]
+    DEV[Developer VS Code]
+    SPA[EMS Web App React SPA]
+    API[EMS API Spring Boot]
+    DB[employee_management_db MySQL]
+    RUN[run.ps1 and run.cmd launcher]
 
     EMP --> SPA
     ADM --> SPA
     DEV --> RUN
     SPA --> API
     API --> DB
-    RUN -.-> SPA
-    RUN -.-> API
-    RUN -.-> DB
+    RUN --> SPA
+    RUN --> API
+    RUN --> DB
 ```
 
 ### External interactions
@@ -77,25 +72,19 @@ There are no third-party integrations, message brokers, caches, email providers,
 
 ```mermaid
 graph LR
-    subgraph Browser
-        UI[React SPA pages]
-        ROUTER[React Router guards]
-        CTX[AuthContext]
-        AX[Axios instance]
-    end
-
-    subgraph Backend
-        FILTER[JwtAuthenticationFilter]
-        SEC[SecurityConfig PreAuthorize]
-        CTRL[REST controllers]
-        DTO[DTO validation]
-        SVC[Services]
-        REPO[Repositories]
-        MAP[Mapper and Specification]
-        EX[GlobalExceptionHandler]
-    end
-
-    DB[(MySQL)]
+    UI[React SPA pages]
+    ROUTER[React Router guards]
+    CTX[AuthContext]
+    AX[Axios instance]
+    FILTER[JwtAuthenticationFilter]
+    SEC[SecurityConfig PreAuthorize]
+    CTRL[REST controllers]
+    DTO[DTO validation]
+    SVC[Services]
+    REPO[Repositories]
+    MAP[Mapper and Specification]
+    EX[GlobalExceptionHandler]
+    DB[MySQL database]
 
     UI --> ROUTER
     ROUTER --> CTX
@@ -107,8 +96,8 @@ graph LR
     DTO --> SVC
     SVC --> REPO
     SVC --> MAP
-    CTRL -.-> EX
-    SVC -.-> EX
+    CTRL --> EX
+    SVC --> EX
     REPO --> DB
 ```
 
@@ -131,13 +120,13 @@ graph TD
     V --> S[Service layer business rules]
     S --> R[Repository layer JPA queries]
     R --> J[JPA Hibernate entity mapping]
-    J --> D[(MySQL)]
+    J --> D[MySQL database]
 
-    SEC[Security cross cutting JWT BCrypt roles] -.-> C
-    EX[Global exception handler] -.-> C
-    MAP[Employee mapper] -.-> S
-    SPEC[Employee search specification] -.-> R
-    NOTE[Notification service] -.-> S
+    SEC[Security cross cutting JWT BCrypt roles] --> C
+    EX[Global exception handler] --> C
+    MAP[Employee mapper] --> S
+    SPEC[Employee search specification] --> R
+    NOTE[Notification service] --> S
 ```
 
 ### Layer rules
